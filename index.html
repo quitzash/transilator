@@ -221,7 +221,7 @@
         }
         .swap-btn:hover { border-color: var(--accent); color: var(--accent); transform: rotate(180deg); }
 
-        /* mic + turtle */
+        /* mic + speed dial */
         .microw { display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; align-items: center; margin-bottom: 14px; }
         .big-mic {
             min-height: 78px; min-width: 330px; padding: 16px 40px;
@@ -241,14 +241,15 @@
             0%,100% { box-shadow: 0 0 0 0 rgba(220,38,38,0.4); }
             50%     { box-shadow: 0 0 0 18px rgba(220,38,38,0); }
         }
-        .slow-btn {
-            min-height: 56px; padding: 12px 22px; border-radius: 16px;
-            font-size: 1rem; font-weight: 800;
-            border: 1.5px solid var(--border); background: var(--surface); color: var(--text-dim);
-            box-shadow: var(--shadow-sm); transition: all 0.2s;
+        .dialwrap {
+            display: flex; align-items: center; gap: 10px;
+            min-height: 56px; padding: 8px 18px; border-radius: 16px;
+            border: 1.5px solid var(--border); background: var(--surface);
+            box-shadow: var(--shadow-sm);
         }
-        .slow-btn:hover { border-color: var(--primary); color: var(--text); }
-        .slow-btn.on { border-color: var(--success); background: var(--success-soft); color: var(--success); }
+        .dialwrap .dial-ico { font-size: 1.1rem; opacity: 0.8; }
+        .dialwrap input[type="range"] { width: 130px; accent-color: var(--primary-2); }
+        .dialwrap .dial-val { min-width: 44px; text-align: center; font-weight: 800; color: var(--text-dim); }
 
         .captions {
             min-height: 46px; font-size: 1.02rem; font-weight: 600; color: var(--text-dim);
@@ -509,6 +510,23 @@
             box-shadow: 0 8px 18px var(--primary-glow);
         }
 
+        .settings-card { max-width: 640px; }
+        .set-h { font-size: 1.02rem; font-weight: 800; color: var(--primary-deep); margin: 20px 0 10px; }
+        .settings-card h2 { margin-bottom: 4px; }
+        .set-note { font-size: 0.9rem; color: var(--text-dim); line-height: 1.5; margin: 4px 0 12px; }
+        .set-note.side { margin: -6px 0 14px; }
+        .set-note code { background: var(--surface-2); padding: 2px 6px; border-radius: 6px; font-size: 0.85em; }
+        .set-row { display: flex; align-items: center; gap: 14px; margin-bottom: 10px; }
+        .set-row .set-label { flex: 0 0 170px; font-weight: 700; color: var(--text-dim); font-size: 0.95rem; }
+        .set-row input[type="text"], .set-row select {
+            flex: 1 1 auto; min-height: 48px; padding: 10px 14px;
+            border: 1.5px solid var(--border); border-radius: 12px;
+            background: var(--surface-2); color: var(--text); font-size: 0.98rem;
+        }
+        .set-row input[type="range"] { flex: 1 1 auto; accent-color: var(--primary-2); }
+        .set-row input[type="checkbox"] { width: 20px; height: 20px; accent-color: var(--primary-2); }
+        .settings-card .dial-val { min-width: 52px; text-align: center; font-weight: 800; color: var(--text-dim); }
+
         /* ═══════════ FOOTER ═══════════ */
         footer { margin-top: 34px; text-align: center; font-size: 0.9rem; color: var(--text-muted); }
         footer .footertag { font-weight: 800; color: var(--text-dim); }
@@ -554,6 +572,7 @@
                 <button id="fontNormal" aria-label="Normal text" title="Normal text">A</button>
                 <button id="fontPlus" aria-label="Larger text" title="Larger text">A+</button>
             </div>
+            <button class="ctl" id="settingsBtn" title="Voice &amp; AI settings">&#9881;</button>
             <button class="ctl" id="themeToggle">Dark</button>
             <button class="ctl" id="helpBtn">Help</button>
         </div>
@@ -592,7 +611,11 @@
 
                 <div class="microw">
                     <button class="big-mic" id="bigMic">Tap here and speak</button>
-                    <button class="slow-btn" id="slowBtn">Turtle speech: off</button>
+                    <label class="dialwrap" title="Voice speed">
+                        <span class="dial-ico">&#9881;</span>
+                        <input type="range" id="speedDial" min="50" max="150" step="5" value="100" aria-label="Voice speed">
+                        <span class="dial-val" id="speedVal">100%</span>
+                    </label>
                 </div>
 
                 <p class="captions" id="captions" aria-live="polite">Tap the big button and speak clearly &mdash; what I hear will appear here.</p>
@@ -706,6 +729,50 @@
 <!-- ═══ TOAST ═══ -->
 <div class="toast" id="toast" hidden></div>
 
+<!-- ═══ SETTINGS OVERLAY ═══ -->
+<div class="overlay" id="settingsOverlay" hidden>
+    <div class="help-card settings-card">
+        <h2>Voice &amp; AI Settings</h2>
+
+        <h3 class="set-h">Voice speed</h3>
+        <div class="set-row">
+            <input type="range" id="setSpeedDial" min="50" max="150" step="5" value="100" aria-label="Voice speed">
+            <span class="dial-val" id="setSpeedVal">100%</span>
+        </div>
+
+        <h3 class="set-h">Natural network voice</h3>
+        <p class="set-note">Talk Bridge prefers crisp, natural voices (neural / Google / Edge) when your device has one. You can choose a language&rsquo;s preferred voice quality.</p>
+        <div class="set-row">
+            <label class="set-label" for="voiceQuality">Voice quality</label>
+            <select id="voiceQuality">
+                <option value="auto">Auto &mdash; best available</option>
+                <option value="natural">Natural (neural/premium)</option>
+                <option value="any">Any available voice</option>
+            </select>
+        </div>
+
+        <h3 class="set-h">Custom model endpoints (optional)</h3>
+        <p class="set-note">Advanced users can plug in their own AI translation and speech services (e.g. OpenAI, an LLM, or a neural TTS endpoint). Leave blank to use the built-in engine.</p>
+        <div class="set-row">
+            <label class="set-label" for="transModel">Translation API URL</label>
+            <input type="text" id="transModel" placeholder="https://api.example.com/translate" autocomplete="off">
+        </div>
+        <div class="set-note side">Returns JSON: <code>{"translatedText": "…"}</code></div>
+        <div class="set-row">
+            <label class="set-label" for="voiceModel">Voice (TTS) API URL</label>
+            <input type="text" id="voiceModel" placeholder="https://api.example.com/tts" autocomplete="off">
+        </div>
+        <div class="set-note side">Returns audio (MP3). <code>text</code>, <code>lang</code>, <code>rate</code> are sent automatically.</div>
+
+        <div class="set-row" style="margin-top:8px;">
+            <input type="checkbox" id="useCustom" style="width:auto; min-height:auto;">
+            <label for="useCustom" class="set-label" style="align-self:center;">Use my custom models for translation &amp; speech</label>
+        </div>
+
+        <button class="help-close" id="settingsSave">Save settings</button>
+    </div>
+</div>
+
 <!-- ═══ HELP OVERLAY ═══ -->
 <div class="overlay" id="helpOverlay" hidden>
     <div class="help-card">
@@ -714,7 +781,7 @@
             <li><b>To speak with the microphone</b>, use Chrome or Microsoft Edge, open the site through <b>start-server.bat</b> (localhost:8000), and allow the microphone when asked. You need internet.</li>
             <li><b>Tap the big button</b> saying &quot;Tap here and speak&quot;, then say a sentence slowly and clearly.</li>
             <li>The translation is <b>written in large letters</b> and <b>said aloud</b> in the other person&rsquo;s language using natural neural voices.</li>
-            <li>Use the <b>voice speed dial</b> (the dial button) to make speech slower or faster, and <b>&quot;Turtle speech&quot;</b> for a very slow, clear pace.</li>
+            <li>Use the <b>voice speed dial</b> (the dial button) to make speech slower or faster.</li>
             <li>Prefer typing? Use the text box and press <b>&quot;Translate and speak&quot;</b>.</li>
             <li>Stuck on an idea? Under <b>&quot;Common phrases&quot;</b>, tap one such as &quot;I need a doctor.&quot;</li>
             <li>Use the <b>A&nbsp;/ A / A+ buttons</b> to change text size, and the <b>&quot;Dark&quot;</b> button for dark colors.</li>
@@ -785,7 +852,7 @@
         });
     }
 
-    /* ── Theme, text size, turtle ── */
+    /* ── Theme, text size ── */
     var theme = load('tt.theme', 'light');
     var fontSize = parseFloat(load('tt.font', '18'));
     applyTheme(); applyFont();
@@ -806,6 +873,50 @@
     $('helpBtn').addEventListener('click', function() { $('helpOverlay').hidden = false; });
     $('helpClose').addEventListener('click', function() { $('helpOverlay').hidden = true; });
     $('helpOverlay').addEventListener('click', function(e) { if (e.target === this) this.hidden = true; });
+
+    /* ── Voice speed ── */
+    var voiceSpeed = parseInt(load('tt.speed', '100'), 10);
+    function setSpeed(pct) {
+        voiceSpeed = pct;
+        save('tt.speed', pct);
+        ['speedDial', 'setSpeedDial'].forEach(function(id) { var el = $(id); if (el) el.value = pct; });
+        if ($('speedVal')) $('speedVal').textContent = pct + '%';
+        if ($('setSpeedVal')) $('setSpeedVal').textContent = pct + '%';
+    }
+    $('speedDial').addEventListener('input', function() { setSpeed(parseInt(this.value, 10)); });
+    $('setSpeedDial').addEventListener('input', function() { setSpeed(parseInt(this.value, 10)); });
+    setSpeed(voiceSpeed);
+
+    /* ── Settings overlay ── */
+    var settings = {
+        voiceQuality: load('tt.vq', 'auto'),
+        transModel: load('tt.trans', ''),
+        voiceModel: load('tt.vmodel', ''),
+        useCustom: load('tt.custom') === '1'
+    };
+    $('settingsBtn').addEventListener('click', function() {
+        $('setSpeedDial').value = voiceSpeed;
+        $('setSpeedVal').textContent = voiceSpeed + '%';
+        $('voiceQuality').value = settings.voiceQuality;
+        $('transModel').value = settings.transModel;
+        $('voiceModel').value = settings.voiceModel;
+        $('useCustom').checked = settings.useCustom;
+        $('settingsOverlay').hidden = false;
+    });
+    $('settingsOverlay').addEventListener('click', function(e) { if (e.target === this) this.hidden = true; });
+    $('settingsSave').addEventListener('click', function() {
+        settings.voiceQuality = $('voiceQuality').value;
+        settings.transModel = $('transModel').value.trim();
+        settings.voiceModel = $('voiceModel').value.trim();
+        settings.useCustom = $('useCustom').checked;
+        save('tt.vq', settings.voiceQuality);
+        save('tt.trans', settings.transModel);
+        save('tt.vmodel', settings.voiceModel);
+        save('tt.custom', settings.useCustom ? '1' : '');
+        setSpeed(parseInt($('setSpeedDial').value, 10));
+        $('settingsOverlay').hidden = true;
+        toast('Settings saved.');
+    });
 
     /* ── Toast ── */
     var toastTimer = null;
@@ -994,8 +1105,8 @@
                     var u = new SpeechSynthesisUtterance(part);
                     u.lang = code;
                     u.voice = voice;
-                    u.rate = opts.slow ? 0.6 : 0.82;
-                    u.pitch = opts.slow ? 1.05 : 1;
+                    u.rate = voiceSpeed / 100;
+                    u.pitch = 1;
                     u.volume = 1;
                     u.onstart = fireStart;
                     u.onend = fireEnd;
@@ -1020,15 +1131,19 @@
             function end() {
                 if (sp.gen === gen && sp.endCb) { var f = sp.endCb; sp.endCb = null; f(); }
             }
+            function ttsSpeed() {
+                if (voiceSpeed < 90) return '0.5';
+                return '1.0';
+            }
             function urlFor(q, g, src) {
                 var enc = encodeURIComponent;
                 if (src === 0) {
                     return 'https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&tl=' +
-                           enc(g) + '&ttsspeed=' + (opts.slow ? '0.5' : '1.0') + '&q=' + enc(q);
+                           enc(g) + '&ttsspeed=' + ttsSpeed() + '&q=' + enc(q);
                 }
                 // Backup source (Google's engine, different client param).
                 return 'https://translate.googleapis.com/translate_tts?ie=UTF-8&client=gtx&ttsspeed=' +
-                       (opts.slow ? '0.5' : '1.0') + '&tl=' + enc(g) + '&q=' + enc(q);
+                       ttsSpeed() + '&tl=' + enc(g) + '&q=' + enc(q);
             }
             function tryPlay() {
                 if (sp.gen !== gen) return;
@@ -1084,22 +1199,10 @@
             tryPlay();
         }
     };
-    function doSpeak(text, code, slow, onStart, onEnd) {
-        sp.speak(text, code, { slow: !!slow, onStart: onStart, onEnd: onEnd });
+    function doSpeak(text, code, onStart, onEnd) {
+        sp.speak(text, code, { onStart: onStart, onEnd: onEnd });
     }
     function stopSpeech() { sp.stop(); }
-
-    /* ── Turtle speech button ── */
-    var slowSpeech = load('tt.slow') === '1';
-    $('slowBtn').classList.toggle('on', slowSpeech);
-    $('slowBtn').textContent = slowSpeech ? 'Turtle speech: on' : 'Turtle speech: off';
-    $('slowBtn').addEventListener('click', function() {
-        slowSpeech = !slowSpeech;
-        save('tt.slow', slowSpeech ? '1' : '0');
-        this.classList.toggle('on', slowSpeech);
-        this.textContent = slowSpeech ? 'Turtle speech: on' : 'Turtle speech: off';
-        stopSpeech();
-    });
 
     /* ── Result card ── */
     var defaultCaption = 'Tap the big button and speak clearly \u2014 what I hear will appear here.';
@@ -1113,7 +1216,7 @@
         var t = $('translatedBig').textContent;
         if (!t) return;
         $('captions').textContent = 'Speaking the translation\u2026';
-        doSpeak(t, speakCode($('theirLang').value), slowSpeech, function() {}, captionsReset);
+        doSpeak(t, speakCode($('theirLang').value), function() {}, captionsReset);
     }
     $('replayBig').addEventListener('click', speakShown);
     $('copyBig').addEventListener('click', function() {
@@ -1194,7 +1297,7 @@
             showResult(res.text, from, to);
             addHistory(text, res.text);
             $('captions').textContent = 'Now speaking it in ' + langName(to) + '\u2026';
-            doSpeak(res.text, speakCode(to), slowSpeech, function() {}, captionsReset);
+            doSpeak(res.text, speakCode(to), function() {}, captionsReset);
             if (recAssistant) recAssistant._handling = false;
         }).catch(function(err) {
             console.error(err);
@@ -1288,7 +1391,7 @@
             play.setAttribute('aria-label', 'Hear this again');
             play.addEventListener('click', function() {
                 $('captions').textContent = 'Speaking the translation\u2026';
-                doSpeak(h.trans, speakCode(h.to), slowSpeech, function() {}, captionsReset);
+                doSpeak(h.trans, speakCode(h.to), function() {}, captionsReset);
             });
             var copy = document.createElement('button');
             copy.className = 'mini-btn'; copy.title = 'Copy text'; copy.textContent = '\u{1F4CB}';
@@ -1455,7 +1558,7 @@
             $('stop' + who).disabled = true;
             setStatus(who, '', '');
         }
-        doSpeak(text, code, false, startHooks, endHooks);
+        doSpeak(text, code, startHooks, endHooks);
         startHooks();
     }
     function stopDuetSpeaking(who) {
