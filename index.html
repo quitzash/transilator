@@ -883,6 +883,43 @@
         loadVoices();
         if (synth.onvoiceschanged !== undefined) synth.onvoiceschanged = loadVoices;
     }
+    /* ── Audio unlock for mobile ──
+       Mobile browsers (iOS Safari, Android Chrome) mute speech synthesis and
+       block autoplaying audio until the user taps the screen at least once.
+       We unlock both TTS and a reusable audio element on the FIRST real
+       user interaction so speaking reliably works on phones and tablets. */
+    var spAudioLocked = true;
+    var spUserTapped = false;
+    function unlockAudio() {
+        if (spUserTapped) return;
+        spUserTapped = true;
+        // Prime speech synthesis (iOS loads voices only after a dismissed utterance).
+        if (synth) {
+            try {
+                synth.cancel();
+                var u = new SpeechSynthesisUtterance(' ');
+                u.volume = 0; u.rate = 2;
+                synth.speak(u);
+                setTimeout(function() { try { synth.cancel(); loadVoices(); } catch (e) {} }, 120);
+            } catch (e) {}
+        }
+        // Build a single reusable audio element and unlock it (muted play first).
+        try {
+            if (!sp.audioEl) {
+                sp.audioEl = new Audio();
+                sp.audioEl.preload = 'auto';
+            }
+            var a = sp.audioEl;
+            a.volume = 0;
+            var pr = a.play();
+            if (pr && pr.catch) pr.then(function() { a.volume = 1; }).catch(function() { a.volume = 1; });
+            spAudioLocked = false;
+        } catch (e) { spAudioLocked = false; }
+    }
+    // Attach to the very first touch/click anywhere in the document.
+    ['pointerdown', 'touchstart', 'click'].forEach(function(evt) {
+        document.addEventListener(evt, unlockAudio, { capture: true, once: true, passive: true });
+    });
     function pickVoice(code) {
         loadVoices();
         if (!voices.length) return null;
@@ -921,10 +958,13 @@
         endCb: null,
         stop: function() {
             sp.gen++;
-            if (synth) synth.cancel();
+            if (synth) { try { synth.cancel(); } catch (e) {} }
             if (sp.audio) {
                 try { sp.audio.onended = null; sp.audio.onerror = null; sp.audio.pause(); } catch (e) {}
                 sp.audio = null;
+            }
+            if (sp.audioEl) {
+                try { sp.audioEl.onended = null; sp.audioEl.onerror = null; sp.audioEl.pause(); } catch (e) {}
             }
             if (sp.endCb) { var f = sp.endCb; sp.endCb = null; f(); }
         },
@@ -968,24 +1008,80 @@
             var gcode = code.split('-')[0];
             var parts = chunkText(text, 180);
             var idx = 0;
+            var srcIdx = 0;
             if (opts.onStart) opts.onStart();
+            // Ensure a single reusable audio element exists.
+            if (!sp.audioEl) {
+                try {
+                    sp.audioEl = new Audio();
+                    sp.audioEl.preload = 'auto';
+                } catch (e) { sp.audioEl = null; }
+            }
             function end() {
                 if (sp.gen === gen && sp.endCb) { var f = sp.endCb; sp.endCb = null; f(); }
             }
-            function next() {
+            function urlFor(q, g, src) {
+                var enc = encodeURIComponent;
+                if (src === 0) {
+                    return 'https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&tl=' +
+                           enc(g) + '&ttsspeed=' + (opts.slow ? '0.5' : '1.0') + '&q=' + enc(q);
+                }
+                // Backup source (Google's engine, different client param).
+                return 'https://translate.googleapis.com/translate_tts?ie=UTF-8&client=gtx&ttsspeed=' +
+                       (opts.slow ? '0.5' : '1.0') + '&tl=' + enc(g) + '&q=' + enc(q);
+            }
+            function tryPlay() {
                 if (sp.gen !== gen) return;
                 if (idx >= parts.length) { end(); return; }
-                var q = parts[idx++];
-                var url = 'https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&tl=' +
-                          encodeURIComponent(gcode) + '&ttsspeed=' + (opts.slow ? '0.5' : '1.0') +
-                          '&q=' + encodeURIComponent(q);
-                var a = new Audio(url);
+                var a = sp.audioEl;
+                if (!a) { end(); return; }
+                var q = parts[idx];
+                var url = urlFor(q, gcode, srcIdx);
+                a.onended = null; a.onerror = null;
+                a.src = url;
+                a.volume = 1;
                 sp.audio = a;
-                a.onended = function() { if (sp.audio === a) sp.audio = null; next(); };
-                a.onerror = function() { if (sp.audio === a) sp.audio = null; end(); };
-                a.play().catch(end);
+                // On mobile, play() must resolve; retry the backup source on failure.
+                var failed = false;
+                a.onerror = function() {
+                    if (sp.audio !== a) return;
+                    if (!failed) { failed = true; retryBackup(); return; }
+                    sp.audio = null; skipToNext();
+                };
+                a.onended = function() {
+                    if (sp.audio === a) { sp.audio = null; advance(); }
+                };
+                var pr;
+                try { pr = a.play(); } catch (e) { pr = null; }
+                if (pr && pr.catch) {
+                    pr.catch(function() {
+                        if (sp.audio !== a) return;
+                        if (!failed) { failed = true; retryBackup(); }
+                        else { sp.audio = null; skipToNext(); }
+                    });
+                }
             }
-            next();
+            function retryBackup() {
+                if (sp.gen !== gen) return;
+                if (srcIdx >= 1) { srcIdx = 0; skipToNext(); return; }
+                srcIdx = 1;
+                tryPlay();
+            }
+            function skipToNext() {
+                if (sp.gen !== gen) return;
+                srcIdx = 0;
+                idx++;
+                if (idx >= parts.length) { end(); return; }
+                tryPlay();
+            }
+            function advance() {
+                if (sp.gen !== gen) return;
+                srcIdx = 0;
+                idx++;
+                if (idx >= parts.length) { end(); return; }
+                setTimeout(tryPlay, 20);
+            }
+            tryPlay();
         }
     };
     function doSpeak(text, code, slow, onStart, onEnd) {
